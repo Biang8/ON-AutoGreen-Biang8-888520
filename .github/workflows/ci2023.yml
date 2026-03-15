@@ -1,61 +1,32 @@
-name: GitHub Heatmap - 2024 Special Pattern
+name: 自动push防止Actions自动停止
+
 on:
-  workflow_dispatch:
+    workflow_dispatch:
+    schedule:
+        - cron: '0 0 1,15 * *'
+    repository_dispatch:
+        types: start_action
 
 jobs:
-  heatmap:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo  
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    build:
+        runs-on: ubuntu-latest
+        if: github.event.repository.owner.id == github.event.sender.id || ! github.event.sender.id || github.actor == 'BlueSkyClouds'
 
-      - name: Generate 2024 Pattern
-        run: |
-          set -e
-          git config --local user.email "wangyuan0999@gmail.com"
-          git config --local user.name "Biang0"
-          git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          git pull --rebase --autostash
-          
-          # 2024年参数（2024-01-07为第一个完整周的周日）
-          start_date="2024-01-07"
-          total_weeks=52
-          # 组合字符：2024
-          pattern="  模式=”
-            ${characters[0]} ${characters[1]} ${characters[2]} ${characters[1]}
-          "
-          generate_heatmap() {
-            local -a rows=($(echo "$pattern" | tr '\n' ' '))
-            local char_start_week=16  # 从周17开始显示（居中）
-            for ((char=0; char<${#rows[@]}; char++)); do
-              local char_data="${rows[char]}"
-              for ((week=0; week<5; week++)); do  # 每个字符占5周
-                for ((day=0; day<7; day++)); do  # 每天对应7天
-                  local pos=$((week*5 + day))
-                  if [[ "${char_data:pos:1}" == "1" ]]; then
-                    commit_date=$(date -d "$start_date +$((char_start_week + week)) weeks +$day days" +"%Y-%m-%dT09:00:00Z")
-                    [[ "$commit_date" > "2024-12-31" ]] && break  # 防止跨年
-                    for i in {1..30}; do  # 深绿色区域提交30次
-                      GIT_COMMITTER_DATE="$commit_date" git commit --allow-empty -m "2024" --date "$commit_date"
-                    done
-                  fi
-                done
-              done
-              char_start_week=$((char_start_week + 5))
-            done
-          }
-          # 生成全年绿色背景（低频率）
-          for ((week=0; week<52; week++)); do
-            for ((day=0; day<7; day++)); do
-              commit_date=$(date -d "$start_date +$week weeks +$day days" +"%Y-%m-%dT09:00:00Z")
-              [[ "$commit_date" > "2024-12-31" ]] && break
-              for i in {1..1}; do  # 普通绿色区域提交1次
-                GIT_COMMITTER_DATE="$commit_date" git commit --allow-empty -m "2024 Background" --date "$commit_date"
-              done
-            done
-          done
-          generate_heatmap
-          git push --force-with-lease
-    
+        steps:
+            - name: Getting the repo
+              uses: actions/checkout@v3
+
+            - name: Re setting the url for `origin`
+              run: |
+                  git remote set-url origin https://${{ github.repository_owner }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            - name: Adding git info
+              run: |
+                  git config --global user.name "Biang8"
+                  git config --global user.email "xi666fu@gmail.com"
+            - name: Creating an empty commit
+              run: |
+                  git commit --allow-empty -m "Auto amazing commit"
+
+            - name: Finilly pushing the repo
+              run: |
+                  git push origin master
